@@ -1,14 +1,17 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+use std::any::Any;
+
+mod builder;
+mod task;
+mod condvar;
+mod core;
+mod defer;
+mod handle;
+mod hooks;
+mod worker;
+mod join;
+mod macros;
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+mod tests;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub type JoinResult<T> = Result<T, Box<dyn Any + Send + 'static>>;
