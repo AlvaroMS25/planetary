@@ -239,7 +239,6 @@ mod vtable {
     where
         T: Runnable
     {
-        println!("Get output");
         let header = unsafe {
             ptr.cast::<Header>().as_ref()
         };
@@ -249,8 +248,6 @@ mod vtable {
         {
             return;
         }
-
-        println!("Not return");
 
         header.state.set(State::OUTPUT_TAKEN, true);
 

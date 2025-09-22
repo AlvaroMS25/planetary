@@ -175,3 +175,17 @@ fn join_output() {
     println!("Sum: {}", a + b);
     handle.shutdown();
 }
+
+#[test]
+fn join_wait() {
+    let handle = create_pool(1, false);
+
+    let sleep_handle = handle.spawn(SleepFor {
+        duration: Duration::from_secs(10)
+    });
+
+    println!("Joining");
+    sleep_handle.join().unwrap();
+    println!("Joined");
+    handle.shutdown();
+}
