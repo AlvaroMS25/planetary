@@ -9,4 +9,14 @@ macro_rules! tracing_feat {
     };
 }
 
+macro_rules! verbose_feat {
+    ($($tree:tt)*) => {
+        #[cfg(feature = "verbose")]
+        {
+            use tracing::*;
+            $($tree)*
+        }
+    };
+}
+
 pub(crate) use tracing_feat;

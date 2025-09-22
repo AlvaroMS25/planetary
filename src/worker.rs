@@ -1,4 +1,4 @@
-use std::cell::UnsafeCell;
+use std::{cell::UnsafeCell, sync::Arc};
 
 use crossbeam_deque::Worker;
 
@@ -52,6 +52,10 @@ pub fn run_worker(core: WorkerCore, initial_task: Option<TypeErasedTask>) {
         core.core.remove_worker(core.id);
 
         tracing_feat!(info!("Worker {} stopped", core.id));
+    });
+
+    crate::handle::sealed::set_handle(crate::handle::Planetary {
+        inner: core.core.clone()
     });
 
     core.core.hooks.call_on_start_fn();

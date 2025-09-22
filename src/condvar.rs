@@ -17,10 +17,16 @@ impl Cv {
     /// Wait on the condvar, returns if the condvar timed out
     pub fn wait_timeout(&self, timeout: Duration) -> bool {
         let _guard = self.mutex.lock().unwrap();
-        match self.condvar.wait_timeout(_guard, timeout) {
+        let t = match self.condvar.wait_timeout(_guard, timeout) {
             Err(e) => e.into_inner().1.timed_out(),
             Ok((_, res)) => res.timed_out()
-        }
+        };
+        t
+    }
+
+    pub fn wait_no_timeout(&self) {
+        let _guard = self.mutex.lock().unwrap();
+        drop(self.condvar.wait(_guard));
     }
 
     /// Notify a single thread waiting on the condvar

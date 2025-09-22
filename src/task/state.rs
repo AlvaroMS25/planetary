@@ -42,4 +42,17 @@ impl State {
     pub fn load_all(&self) -> u16 {
         self.0.load(Ordering::Acquire)
     }
+
+    pub fn snapshot(&self) -> Snapshot {
+        Snapshot(self.load_all())
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Snapshot(u16);
+
+impl Snapshot {
+    pub fn get(&self, item: u16) -> bool {
+        self.0 & item != 0
+    }
 }

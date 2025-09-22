@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, pin::Pin, ptr::NonNull, task::{Context, Poll}};
 
-use crate::{task::Header, JoinResult};
+use crate::{task::{state::State, Header}, JoinResult};
 
 pub struct JoinHandle<T> {
     header: NonNull<Header>,
@@ -43,6 +43,12 @@ impl<T> JoinHandle<T> {
     pub fn abort(&self) {
         unsafe {
             self.header.as_ref().mark_aborted();
+        }
+    }
+
+    pub fn is_finished(&self) -> bool {
+        unsafe {
+            self.header.as_ref().state_snapshot().get(State::FINISHED)
         }
     }
 

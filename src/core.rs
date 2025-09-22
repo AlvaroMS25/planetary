@@ -2,7 +2,7 @@ use std::{cell::UnsafeCell, collections::HashSet, ops::Deref, sync::{atomic::{At
 
 use crossbeam_deque::{Injector, Steal, Stealer, Worker};
 
-use crate::{builder::PlanetaryBuilder, condvar::Cv, hooks::Hooks, macros::tracing_feat, task::TypeErasedTask, worker::WorkerCore};
+use crate::{builder::PlanetaryBuilder, condvar::Cv, hooks::Hooks, macros::tracing_feat, task::TypeErasedTask, worker::{self, WorkerCore}};
 
 #[derive(Clone)]
 pub struct Core(Arc<CoreInner>);
@@ -35,6 +35,7 @@ pub struct CoreInner {
     stack_size: Option<usize>,
     /// Maximum number of threads that can be spawned
     max_threads: usize,
+    shutdown_cv: Cv,
 }
 
 unsafe impl Send for CoreInner {}
@@ -54,12 +55,19 @@ impl Core {
             working: AtomicUsize::new(0),
             stack_size: builder.stack_size,
             max_threads: builder.max_threads,
+            shutdown_cv: Cv::new()
         }))
     }
 
     pub fn spawn_task(&self, task: TypeErasedTask) {
         if !self.should_spawn_thread() {
-            tracing_feat!(trace!("Task spawned, injecting into queue"));
+            if let Some(worker) = worker::try_get_worker() {
+                tracing_feat!(trace!("Pushing task into current worker"));
+                worker.queue.push(task);
+                return;
+            }
+
+            tracing_feat!(trace!("Task spawned, injecting into global injector"));
 
             self.injector.push(task);
             self.condvar.notify_one(); // wake if a thread is parked
@@ -88,7 +96,7 @@ impl Core {
             .unwrap_or_else(|s| s.into_inner())
     }
 
-    fn spawn_thread_with(&self, task: Option<TypeErasedTask>) {
+    pub fn spawn_thread_with(&self, task: Option<TypeErasedTask>) {
         let mut lock = self.lock_threads();
         let mut ids = self.used_ids.lock().unwrap_or_else(|s| s.into_inner());
         assert!(lock.len() < self.max_threads);
@@ -103,6 +111,7 @@ impl Core {
         };
 
         let worker = WorkerCore::new(self.clone(), id);
+        let stealer = worker.queue.stealer();
         self.working.fetch_add(1, Ordering::SeqCst);
 
         let mut thread_builder = std::thread::Builder::new()
@@ -112,11 +121,19 @@ impl Core {
             thread_builder = thread_builder.stack_size(stack_size);
         }
 
-        thread_builder
+        let handle = thread_builder
             .spawn(move || {
                 crate::worker::run_worker(worker, task);
             })
             .unwrap_or_else(|_| panic!("Failed to spawn thread"));
+
+        tracing_feat!(trace!("Adding thread {id} to threads"));
+        lock.push(ThreadInfo {
+            queue: stealer,
+            handle,
+            id
+        });
+        tracing_feat!(trace!("Thread id {id} added"));
     }
 
     /// Checks whether a thread should be spawned, there are idle
@@ -159,35 +176,47 @@ impl Core {
     pub fn remove_worker(&self, id: usize) {
         let mut threads = self.lock_threads();
         threads.retain(|t| t.id != id);
+        self.shutdown_cv.notify_all();
     }
 
     /// Tries taking a task from the injector, if it fails, it will try
     /// to steal it from a worker queue.
     pub fn try_steal(&self, worker_id: usize) -> Option<TypeErasedTask> {
+        tracing_feat!(trace!("Worker {worker_id} trying to steal a task"));
+
         if let Steal::Success(task) = self.injector.steal() {
+            tracing_feat!(trace!("Worker {worker_id} took a task from the global injector"));
             return Some(task);
         }
 
         let threads = self.lock_threads_read();
-        let len = threads.len() - 1; // the one stealing doesnt count
+        let len = threads.len(); // - 1; the one stealing doesnt count, but the range is non inclusive, so not -1
 
         (0..len)
             .find_map(|_| {
                 let target = fastrand::usize(0..len);
 
-                if target == worker_id {
+                let target_worker = unsafe { threads.get_unchecked(target) };
+
+                if target_worker.id == worker_id {
                     return None;
                 }
 
                 // SAFETY:
                 // We are in bounds due to how we got the index, so this cant be UB
-                let steal = unsafe { threads.get_unchecked(target) }
+                let steal = target_worker
                     .queue
                     .steal();
 
                 match steal {
-                    Steal::Empty | Steal::Retry => None,
-                    Steal::Success(task) => Some(task)
+                    Steal::Empty | Steal::Retry => {
+                        tracing_feat!(trace!("Worker {worker_id} failed to steal a task from worker {}", target_worker.id));
+                        None
+                    },
+                    Steal::Success(task) => {
+                        tracing_feat!(trace!("Worker {worker_id} stole a task from worker {}", target_worker.id));
+                        Some(task)
+                    }
                 }
             })
     }
@@ -201,6 +230,16 @@ impl Core {
     pub fn set_stop(&self, stop: bool) {
         unsafe {
             std::ptr::write_volatile(self.stop.get(), stop);
+        }
+    }
+
+    pub fn wait_stop(&self) {
+        let all_stopped = || {
+            self.threads.read().unwrap().len() == 0
+        };
+
+        while !all_stopped() {
+            self.shutdown_cv.wait_no_timeout();
         }
     }
 

@@ -1,6 +1,6 @@
-use std::time::Duration;
+use std::{io, sync::Arc, time::Duration};
 
-use crate::hooks::Hooks;
+use crate::{core::Core, handle::Planetary, hooks::Hooks};
 
 /// Builder for a `Planetary` instance.
 pub struct PlanetaryBuilder {
@@ -12,6 +12,8 @@ pub struct PlanetaryBuilder {
     pub(crate) stack_size: Option<usize>,
     /// Timeout for the worker threads while not doing any work.
     pub(crate) timeout: Duration,
+    /// Whether to launch all the threads when the threadpool is built
+    pub(crate) launch_on_build: bool,
 }
 
 impl PlanetaryBuilder {
@@ -21,6 +23,7 @@ impl PlanetaryBuilder {
             max_threads: num_cpus::get(),
             stack_size: None,
             timeout: Duration::from_secs(15),
+            launch_on_build: false
         }
     }
 
@@ -42,11 +45,35 @@ impl PlanetaryBuilder {
         self
     }
 
+    /// Sets whether to launch all worker threads when the threadpool is built.
+    pub fn launch_on_build(&mut self, launch: bool) -> &mut Self {
+        self.launch_on_build = launch;
+        self
+    }
+
     /// Sets the hooks to be executed from the threadpool.
     pub fn with_hooks(&mut self, fun: impl FnOnce(&mut Hooks)) -> &mut Self {
         fun(&mut self.hooks);
 
         self
+    }
+
+    pub fn build(&mut self) -> io::Result<Planetary> {
+        let launch = self.launch_on_build;
+        let threads = self.max_threads;
+        let pool_core = Core::new(std::mem::replace(self, Self::new()));
+
+        if launch {
+            for _ in 0..threads {
+                pool_core.spawn_thread_with(None);
+            }
+        }
+
+        let planetary = Planetary {
+            inner: pool_core
+        };
+
+        Ok(planetary)
     }
 }
 

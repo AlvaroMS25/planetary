@@ -1,6 +1,6 @@
 use std::{mem::MaybeUninit, ptr::NonNull, sync::Mutex};
 
-use crate::JoinResult;
+use crate::{task::state::Snapshot, JoinResult};
 
 use super::{park::Parker, runnable::Runnable, state::State, vtable::VTable};
 
@@ -102,6 +102,10 @@ impl Header {
 
     pub fn mark_aborted(&self) {
         self.state.set(State::ABORTED, true);
+    }
+
+    pub fn state_snapshot(&self) -> Snapshot {
+        self.state.snapshot()
     }
 }
 
