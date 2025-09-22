@@ -35,6 +35,7 @@ pub struct CoreInner {
     stack_size: Option<usize>,
     /// Maximum number of threads that can be spawned
     max_threads: usize,
+    /// Conditional variable used when shutting down the threadpool
     shutdown_cv: Cv,
 }
 

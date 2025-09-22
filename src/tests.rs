@@ -189,3 +189,32 @@ fn join_wait() {
     println!("Joined");
     handle.shutdown();
 }
+
+#[test]
+fn stop_twice() {
+    enable_tracing();
+    let pool = create_pool(1, true);
+    let pool2 = pool.clone();
+
+    sleep(Duration::from_secs(1));
+
+    tracing::debug!("Stopping");
+    pool.shutdown();
+    tracing::debug!("First stop");
+
+    pool2.shutdown();
+    tracing::debug!("Second stop");
+}
+
+#[test]
+fn nested_joins() {
+    let pool = create_pool(2, false);
+
+    pool.spawn(|| {
+        crate::spawn(SleepFor {
+            duration: Duration::from_secs(5)
+        }).join().unwrap();
+    }).join().unwrap();
+
+    pool.shutdown();
+}
