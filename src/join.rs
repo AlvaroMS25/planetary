@@ -9,6 +9,11 @@ pub struct JoinHandle<T> {
 
 impl<T> JoinHandle<T> {
     pub(crate) fn new(header: NonNull<Header>) -> Self {
+        unsafe {
+            let header = header.as_ref();
+            header.state.set(State::HANDLE_ALIVE, true);
+        };
+
         Self {
             header,
             _marker: PhantomData
@@ -81,5 +86,15 @@ impl<T> Future for JoinHandle<T> {
         }
 
         Poll::Pending
+    }
+}
+
+impl<T> Drop for JoinHandle<T> {
+    fn drop(&mut self) {
+        unsafe {
+            self.header.as_ref().state.set(State::HANDLE_ALIVE, false);
+        }
+        
+        Header::try_dealloc(self.header);
     }
 }

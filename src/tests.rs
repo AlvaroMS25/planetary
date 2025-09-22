@@ -142,3 +142,36 @@ fn steal_work() {
     println!("Shutdown");
     handle.shutdown();
 }
+
+#[test]
+fn join_output() {
+    let handle = create_pool(2, false);
+
+    let handle1 = handle.spawn(|| {
+        println!("Mondongo");
+        let r = fastrand::usize(0..100);
+        println!("Returning {r}");
+        r
+    });
+
+    let handle2 = handle.spawn(|| {
+        /*_ = crate::spawn(SleepFor {
+            duration: Duration::from_secs(5)
+        }).join();*/
+
+        println!("Illojuan");
+        let r = fastrand::usize(0..100);
+        println!("Returning {r}");
+
+        r
+    });
+
+    let a = handle1.join().unwrap();
+    println!("Got a");
+
+    let b = handle2.join().unwrap();
+    println!("Got b");
+    
+    println!("Sum: {}", a + b);
+    handle.shutdown();
+}

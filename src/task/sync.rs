@@ -15,7 +15,7 @@ pub struct Task<T, R> {
 /// Header of the task, used to interact with the task
 pub struct Header {
     vtable: &'static VTable,
-    state: State,
+    pub(crate) state: State,
     parker: Mutex<Parker>
 }
 
@@ -75,7 +75,7 @@ impl Header {
         }
     }
 
-    fn try_dealloc(this: NonNull<Self>) -> bool {
+    pub fn try_dealloc(this: NonNull<Self>) -> bool {
         unsafe {
             let dealloc_fn = this.as_ref().vtable.drop;
             dealloc_fn(this.cast())
@@ -183,6 +183,8 @@ mod vtable {
         task.header.state.set(State::RUNNING, false);
         task.header.state.set(State::FINISHED, true);
         task.header.state.set(State::OUTPUT_READY, true);
+
+        task.header.wake();
     }
 
     unsafe fn abort(ptr: NonNull<()>) {
@@ -237,6 +239,7 @@ mod vtable {
     where
         T: Runnable
     {
+        println!("Get output");
         let header = unsafe {
             ptr.cast::<Header>().as_ref()
         };
@@ -246,6 +249,8 @@ mod vtable {
         {
             return;
         }
+
+        println!("Not return");
 
         header.state.set(State::OUTPUT_TAKEN, true);
 
