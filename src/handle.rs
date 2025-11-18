@@ -1,6 +1,4 @@
-use std::sync::Arc;
-
-use crate::{core::Core, join::JoinHandle, task::{Runnable, Task}, worker};
+use crate::{core::Core, join::JoinHandle, task::{Runnable, Task}};
 
 pub(crate) mod sealed {
     use std::cell::RefCell;
@@ -36,10 +34,12 @@ pub struct Planetary {
 }
 
 impl Planetary {
+    /// Creates a new (builder)[`crate::builder::PlanetaryBuilder`]
     pub fn builder() -> crate::builder::PlanetaryBuilder {
         crate::builder::PlanetaryBuilder::new()
     }
 
+    /// Spawns a new [`Runnable`] into the threadpool, returning a handle to interact with it.
     pub fn spawn<F: Runnable>(&self, runnable: F) -> JoinHandle<F::Output> {
         let task = Task::new(runnable).erase();
         let header = task.header;
@@ -48,14 +48,19 @@ impl Planetary {
         JoinHandle::new(header)
     }
 
+    /// Gets the current [`Planetary`] in scope. Will panic if not inside the context of a
+    /// running instance. For a non-panic alternative, see [`Planetary::try_current`]
     pub fn current() -> Self {
         sealed::get_handle()
     }
 
+    /// Tries to get the current [`Planetary`] in scope.
     pub fn try_current() -> Option<Self> {
         sealed::try_get_handle()
     }
 
+    /// Shuts down the threadpool connected to this particular handle. Subsequent calls to
+    /// [`Planetary::spawn`] will have no effect, and enqueued tasks will not run.
     pub fn shutdown(self) {
         sealed::remove_handle();
         self.inner.set_stop(true);

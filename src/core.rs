@@ -1,6 +1,6 @@
 use std::{cell::UnsafeCell, collections::HashSet, ops::Deref, sync::{atomic::{AtomicUsize, Ordering}, Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard}, thread::JoinHandle, time::Duration};
 
-use crossbeam_deque::{Injector, Steal, Stealer, Worker};
+use crossbeam_deque::{Injector, Steal, Stealer};
 
 use crate::{builder::PlanetaryBuilder, condvar::Cv, hooks::Hooks, macros::tracing_feat, task::TypeErasedTask, worker::{self, WorkerCore}};
 
@@ -79,6 +79,7 @@ impl Core {
         self.spawn_thread_with(Some(task));
     }
 
+    #[allow(mismatched_lifetime_syntaxes)]
     fn lock_threads(&self) -> RwLockWriteGuard<Vec<ThreadInfo>> {
         if self.threads.is_poisoned() {
             self.threads.clear_poison();
@@ -88,6 +89,7 @@ impl Core {
             .unwrap_or_else(|s| s.into_inner())
     }
 
+    #[allow(mismatched_lifetime_syntaxes)]
     fn lock_threads_read(&self) -> RwLockReadGuard<Vec<ThreadInfo>> {
         if self.threads.is_poisoned() {
             self.threads.clear_poison();
@@ -277,6 +279,7 @@ struct ThreadInfo {
     /// The thread stealer that will be used to steal tasks from its local queue
     queue: Stealer<TypeErasedTask>,
     /// The thread handle
+    #[allow(unused)]
     handle: JoinHandle<()>,
     /// Thread id
     id: usize

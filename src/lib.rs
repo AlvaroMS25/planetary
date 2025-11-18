@@ -2,15 +2,15 @@ use std::any::Any;
 
 use crate::{handle::Planetary, join::JoinHandle, task::Runnable};
 
-mod builder;
-mod task;
+pub mod builder;
+pub mod task;
 mod condvar;
 mod core;
 mod defer;
-mod handle;
+pub mod handle;
 mod hooks;
 mod worker;
-mod join;
+pub mod join;
 mod macros;
 
 #[cfg(test)]

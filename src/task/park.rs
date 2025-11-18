@@ -10,6 +10,7 @@ pub enum Parker {
 
 
 impl Parker {
+    #[allow(unused)]
     pub fn new() -> Self {
         Self::default()
     }

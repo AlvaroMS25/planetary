@@ -1,4 +1,4 @@
-use std::{cell::UnsafeCell, sync::Arc};
+use std::cell::UnsafeCell;
 
 use crossbeam_deque::Worker;
 
@@ -66,6 +66,10 @@ pub fn run_worker(core: WorkerCore, initial_task: Option<TypeErasedTask>) {
 
     loop {
         if core.core.should_stop() {
+            while let Some(task) = core.queue.pop() {
+                task.abort();
+            }
+
             return;
         }
 
@@ -102,6 +106,7 @@ fn execute_task_inner(hooks: &Hooks, task: TypeErasedTask) {
 
 /// Yields execution to the current worker for a single task,
 /// panics if called outside a threadpool worker
+#[allow(unused)]
 pub fn yield_now() {
     let core = unsafe {
         let opt = WORKER.with(|c| &*c.get());

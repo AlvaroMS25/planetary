@@ -2,6 +2,10 @@ use std::{marker::PhantomData, pin::Pin, ptr::NonNull, task::{Context, Poll}};
 
 use crate::{task::{state::State, Header}, JoinResult};
 
+/// Handle used to wait for a task's output.
+/// 
+/// If the handle is not required, please call [`JoinHandle::detach`]
+#[must_use = "If unnecessary, please drop it or call .abort()"]
 pub struct JoinHandle<T> {
     header: NonNull<Header>,
     _marker: PhantomData<T>
@@ -20,6 +24,7 @@ impl<T> JoinHandle<T> {
         }
     }
 
+    /// Waits for the underlying task to dinish and returns the output.
     pub fn join(mut self) -> JoinResult<T> {
         if let Some(output) = self.try_join() {
             return output;
@@ -45,16 +50,28 @@ impl<T> JoinHandle<T> {
         }
     }
 
+    /// Marks the underlying task as aborted, telling the workers to don't run it
+    /// if they haven't already.
     pub fn abort(&self) {
+        Header::abort(self.header);
+    }
+
+    pub fn is_aborted(&self) -> bool {
         unsafe {
-            self.header.as_ref().mark_aborted();
+            self.header.as_ref().state_snapshot().get(State::ABORTED)
         }
     }
 
+    /// Checks whether the task is finished
     pub fn is_finished(&self) -> bool {
         unsafe {
             self.header.as_ref().state_snapshot().get(State::FINISHED)
         }
+    }
+
+    /// Detaches the handle from the underlying task
+    pub fn detach(self) {
+        drop(self);
     }
 
     fn try_join(&mut self) -> Option<JoinResult<T>> {

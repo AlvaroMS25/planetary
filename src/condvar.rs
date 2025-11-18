@@ -1,4 +1,4 @@
-use std::{sync::{Condvar, Mutex, WaitTimeoutResult}, time::Duration};
+use std::{sync::{Condvar, Mutex}, time::Duration};
 
 /// Condvar used to make threads wait for a condition to be met
 pub struct Cv {

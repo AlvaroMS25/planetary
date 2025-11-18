@@ -9,6 +9,7 @@ macro_rules! tracing_feat {
     };
 }
 
+#[allow(unused)]
 macro_rules! verbose_feat {
     ($($tree:tt)*) => {
         #[cfg(feature = "verbose")]

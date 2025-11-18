@@ -66,7 +66,7 @@ impl Header {
         }
     }
 
-    fn abort(this: NonNull<Self>) {
+    pub fn abort(this: NonNull<Self>) {
         unsafe {
             let abort_fn = this.as_ref().vtable.abort;
             abort_fn(this.cast());
@@ -100,10 +100,6 @@ impl Header {
         &self.parker
     }
 
-    pub fn mark_aborted(&self) {
-        self.state.set(State::ABORTED, true);
-    }
-
     pub fn state_snapshot(&self) -> Snapshot {
         self.state.snapshot()
     }
@@ -112,6 +108,10 @@ impl Header {
 impl TypeErasedTask {
     pub fn run(self) {
         Header::run(self.header);
+    }
+
+    pub fn abort(self) {
+        Header::abort(self.header);
     }
 }
 

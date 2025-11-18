@@ -1,4 +1,4 @@
-use std::{io, sync::Arc, time::Duration};
+use std::{io, time::Duration};
 
 use crate::{core::Core, handle::Planetary, hooks::Hooks};
 
