@@ -6,7 +6,8 @@ pub mod builder;
 pub mod task;
 mod condvar;
 mod core;
-mod defer;
+#[doc(hidden)]
+pub mod defer;
 pub mod handle;
 mod hooks;
 mod worker;

@@ -73,6 +73,8 @@ impl PlanetaryBuilder {
             inner: pool_core
         };
 
+        crate::handle::sealed::set_handle(planetary.clone());
+
         Ok(planetary)
     }
 }
